@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -59,15 +60,19 @@ impl<T> DoubleLinkedList<T> {
 
     fn remove(&mut self) {}
 
-    fn get(&mut self, index: usize) {
-        if index < 0 || index >= self.lenght {
-            return
+    fn get(&mut self, index: usize) -> Option<T>
+    where 
+        T: Clone
+    {
+        if index >= self.lenght {
+            return None
         }
-        let mut node_p: Option<Rc<RefCell<Node<T>>>> = self.head;
+        let mut node_p: Option<Rc<RefCell<Node<T>>>> = Some(Rc::clone(&self.head.clone().unwrap()));
         for _ in 0..index {
-            todo!()
+            node_p = Some(Rc::clone(&node_p.unwrap().borrow_mut().next.clone().unwrap()));
         }
 
+        Some(node_p.unwrap().borrow().value.clone())  
     }
 
     fn remove_at(&mut self) {}
