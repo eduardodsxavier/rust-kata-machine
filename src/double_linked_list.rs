@@ -10,7 +10,7 @@ struct Node<T> {
 }
 
 pub struct DoubleLinkedList<T> {
-    lenght: usize,
+    pub lenght: usize,
     head: Option<Rc<RefCell<Node<T>>>>, 
     tail: Option<Rc<RefCell<Node<T>>>> 
 }
@@ -24,7 +24,7 @@ impl<T> DoubleLinkedList<T> {
         }
     }
 
-    fn prepend(&mut self, value: T) {
+    pub fn prepend(&mut self, value: T) {
         self.lenght += 1;
         let node = Rc::new(RefCell::new(Node {value, prev: None, next:None}));
 
@@ -40,7 +40,7 @@ impl<T> DoubleLinkedList<T> {
         self.head = Some(Rc::clone(&node));
     }
 
-    fn insert_at(&mut self, index: usize, value: T) {
+    pub fn insert_at(&mut self, index: usize, value: T) {
         if index == 0 {
             self.prepend(value);
             return
@@ -68,14 +68,23 @@ impl<T> DoubleLinkedList<T> {
             return
         }
 
-        node.borrow_mut().prev = Some(Rc::clone(&node_p.clone().unwrap()));
-        node.borrow_mut().prev.clone().unwrap().borrow_mut().next = Some(Rc::clone(&node.clone()));
+        if let Some(node_p) = node_p.clone() {
+            let mut node_borrow = node.borrow_mut();
 
-        node.borrow_mut().next = Some(Rc::clone(&node_p.clone().unwrap().borrow_mut().next.clone().unwrap()));
-        node.borrow_mut().next.clone().unwrap().borrow_mut().prev = Some(Rc::clone(&node));
+            node_borrow.prev = Some(Rc::clone(&node_p));
+
+            if let Some(node_p_next) = node_p.borrow_mut().next.clone() {
+                node_borrow.next = Some(Rc::clone(&node_p_next));
+
+                node_p_next.borrow_mut().prev = Some(Rc::clone(&node));
+            }
+
+            node_p.borrow_mut().next = Some(Rc::clone(&node));
+        }
+
     }
 
-    fn append(&mut self, value: T) {
+    pub fn append(&mut self, value: T) {
         self.lenght += 1;
         let node = Rc::new(RefCell::new(Node {value, prev: None, next:None}));
 
@@ -91,9 +100,9 @@ impl<T> DoubleLinkedList<T> {
         self.tail = Some(Rc::clone(&node));
     }
 
-    fn remove(&mut self, value: T) -> Option<T> 
-        where 
-            T: PartialEq + Clone
+    pub fn remove(&mut self, value: T) -> Option<T> 
+    where 
+        T: PartialEq + Clone
     {
         let mut node_p: Option<Rc<RefCell<Node<T>>>> = Some(Rc::clone(&self.head.clone().unwrap()));
         for _ in 0..self.lenght {
@@ -127,16 +136,24 @@ impl<T> DoubleLinkedList<T> {
             self.tail = node_p.clone().unwrap().borrow_mut().prev.clone();
         }
 
+        if let Some(node_rc) = node_p.clone() {
+            let node = node_rc.borrow_mut(); // Get mutable borrow once
 
-        node_p.clone().unwrap().borrow_mut().next.clone().unwrap().borrow_mut().prev =
-            node_p.clone().unwrap().borrow_mut().prev.clone();
-        node_p.unwrap().borrow_mut().prev.clone().unwrap().borrow_mut().next =
-            node_p.clone().unwrap().borrow_mut().next.clone();
+            if let Some(next_rc) = node.next.clone() {
+                let mut next = next_rc.borrow_mut(); // Get mutable borrow for next
+                next.prev = node.prev.clone();
+            }
+
+            if let Some(prev_rc) = node.prev.clone() {
+                let mut prev = prev_rc.borrow_mut(); // Get mutable borrow for prev
+                prev.next = node.next.clone();
+            }
+        }
 
         return Some(value)
     }
 
-    fn get(&mut self, index: usize) -> Option<T>
+    pub fn get(&mut self, index: usize) -> Option<T>
     where 
         T: Clone
     {
@@ -151,6 +168,57 @@ impl<T> DoubleLinkedList<T> {
         Some(node_p.unwrap().borrow().value.clone())  
     }
 
-    fn remove_at(&mut self) {}
+    pub fn remove_at(&mut self, index: usize) -> Option<T>
+    where 
+        T: Clone
+    {
+        if index >= self.lenght {
+            return None
+        }
 
+        let mut node_p: Option<Rc<RefCell<Node<T>>>> = Some(Rc::clone(&self.head.clone().unwrap()));
+        for _ in 0..index {
+            node_p = Some(Rc::clone(&node_p.unwrap().borrow_mut().next.clone().unwrap()));
+        }
+
+        if node_p.is_none() {
+            return None
+        }
+
+        self.lenght -= 1;
+
+        let value = node_p.clone().unwrap().borrow_mut().value.clone();
+
+        if node_p.clone().unwrap().borrow_mut().prev.is_none() {
+            if node_p.clone().unwrap().borrow_mut().next.is_none() {
+                self.head = None;
+                self.tail = None;
+                return Some(value)
+            }
+            self.head = node_p.clone().unwrap().borrow_mut().next.clone();
+            node_p.clone().unwrap().borrow_mut().next.clone().unwrap().borrow_mut().prev = None;
+            return Some(value)
+        }
+
+        if node_p.clone().unwrap().borrow_mut().next.is_none() {
+            node_p.clone().unwrap().borrow_mut().prev.clone().unwrap().borrow_mut().next = None;
+            self.tail = node_p.clone().unwrap().borrow_mut().prev.clone();
+        }
+
+        if let Some(node_rc) = node_p.clone() {
+            let node = node_rc.borrow_mut();
+
+            if let Some(next_rc) = node.next.clone() {
+                let mut next = next_rc.borrow_mut();
+                next.prev = node.prev.clone();
+            }
+
+            if let Some(prev_rc) = node.prev.clone() {
+                let mut prev = prev_rc.borrow_mut();
+                prev.next = node.next.clone();
+            }
+        }
+
+        return Some(value)
+    }
 }
